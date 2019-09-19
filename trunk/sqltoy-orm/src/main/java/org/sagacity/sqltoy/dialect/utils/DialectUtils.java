@@ -204,8 +204,9 @@ public class DialectUtils {
 			throws Exception {
 		// 打印sql
 		SqlExecuteStat.showSql(sql, paramsValue);
-		PreparedStatement pst = conn.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE,
-				ResultSet.CONCUR_READ_ONLY);
+//		PreparedStatement pst = conn.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE,
+//				ResultSet.CONCUR_READ_ONLY);
+		PreparedStatement pst = conn.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		if (fetchSize > 0)
 			pst.setFetchSize(fetchSize);
 		if (maxRows > 0)
