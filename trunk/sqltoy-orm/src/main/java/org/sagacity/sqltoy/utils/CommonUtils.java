@@ -3,10 +3,14 @@
  */
 package org.sagacity.sqltoy.utils;
 
+import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
@@ -15,6 +19,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * @project sagacity-sqltoy4.0
  * @description 提供一些常用的函數處理
@@ -22,6 +29,11 @@ import java.util.Set;
  * @version id:CommonUtils.java,Revision:v1.0,Date:2017年12月9日
  */
 public class CommonUtils {
+	/**
+	 * 定义日志
+	 */
+	private final static Logger logger = LogManager.getLogger(CommonUtils.class);
+
 	/**
 	 * 整数数字正则表达式
 	 */
@@ -97,6 +109,16 @@ public class CommonUtils {
 	}
 
 	/**
+	 * @TODO 读取文件存为字符串
+	 * @param file
+	 * @param charset
+	 * @return
+	 */
+	public static String readFileAsString(Object file, String charset) {
+		return inputStream2String(getFileInputStream(file), charset);
+	}
+
+	/**
 	 * @todo 获得指定路径的文件
 	 * @param file 文件路径like:classpath:xxx.xml或xxx.xml
 	 * @return
@@ -107,43 +129,73 @@ public class CommonUtils {
 		try {
 			if (file instanceof InputStream)
 				return (InputStream) file;
-			else if (file instanceof File)
+			if (file instanceof File)
 				return new FileInputStream((File) file);
-			else {
-				String realFile = (String) file;
-				if (StringUtil.isBlank(realFile))
-					return null;
-				// 文件路径
-				if (new File(realFile).exists()) {
-					return new FileInputStream(realFile);
-				} else {
-					if (StringUtil.indexOfIgnoreCase(realFile.trim(), "classpath:") == 0)
-						realFile = realFile.trim().substring(10).trim();
-					if (realFile.charAt(0) == '/')
-						realFile = realFile.substring(1);
-					InputStream result = Thread.currentThread().getContextClassLoader().getResourceAsStream(realFile);
-					if (result == null) {
-						try {
-							Enumeration<URL> urls = Thread.currentThread().getContextClassLoader()
-									.getResources(realFile);
-							URL url;
-							while (urls.hasMoreElements()) {
-								url = urls.nextElement();
-								result = new FileInputStream(url.getFile());
-								if (result != null)
-									break;
-							}
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
+
+			String realFile = (String) file;
+			if (StringUtil.isBlank(realFile))
+				return null;
+			// 文件路径
+			if (new File(realFile).exists()) {
+				return new FileInputStream(realFile);
+			}
+			if (StringUtil.indexOfIgnoreCase(realFile.trim(), "classpath:") == 0)
+				realFile = realFile.trim().substring(10).trim();
+			if (realFile.charAt(0) == '/')
+				realFile = realFile.substring(1);
+			InputStream result = Thread.currentThread().getContextClassLoader().getResourceAsStream(realFile);
+			if (result == null) {
+				try {
+					Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources(realFile);
+					URL url;
+					while (urls.hasMoreElements()) {
+						url = urls.nextElement();
+						result = new FileInputStream(url.getFile());
+						if (result != null)
+							break;
 					}
-					return result;
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			}
+			return result;
 		} catch (FileNotFoundException fn) {
 			fn.printStackTrace();
 		}
 		return null;
+	}
+
+	/**
+	 * 转换InputStream为String
+	 *
+	 * @param is
+	 * @param encoding
+	 * @return
+	 */
+	public static String inputStream2String(InputStream is, String encoding) {
+		if (null == is) {
+			return null;
+		}
+		StringBuilder buffer = new StringBuilder();
+		BufferedReader in = null;
+		try {
+			if (StringUtil.isNotBlank(encoding)) {
+				in = new BufferedReader(new InputStreamReader(is, encoding));
+			} else {
+				in = new BufferedReader(new InputStreamReader(is));
+			}
+			String line = "";
+			while ((line = in.readLine()) != null) {
+				buffer.append(line);
+				buffer.append("\r\n");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.error(e.getMessage());
+		} finally {
+			closeQuietly(in);
+		}
+		return buffer.toString();
 	}
 
 	/**
@@ -160,10 +212,12 @@ public class CommonUtils {
 		Object value;
 		for (int i = 0; i < logicParamCnt; i++) {
 			value = paramValues.get(preCount + i);
-			// 参数为null等价于#[]判断正确
-			if ((value == null) || (value.getClass().isArray() && CollectionUtil.convertArray(value).length == 0)
-					|| ((value instanceof Collection) && ((Collection) value).isEmpty())) {
-				return false;
+			// 参数为null会参与后面等于和不等于逻辑判断,数组不参与判断
+			if (value != null) {
+				if ((value.getClass().isArray() && CollectionUtil.convertArray(value).length == 0)
+						|| ((value instanceof Collection) && ((Collection) value).isEmpty())) {
+					return false;
+				}
 			}
 		}
 		// 规范判断符号标准
@@ -220,13 +274,12 @@ public class CommonUtils {
 			}
 			if (expressions.length == 1) {
 				return (expressResult[0] ? "true" : "false");
-			} else {
-				if (logicStr.equals("&&")) {
-					return ((expressResult[0] && expressResult[1]) ? "true" : "false");
-				} else {
-					return ((expressResult[0] || expressResult[1]) ? "true" : "false");
-				}
 			}
+			// 只支持&& 和||
+			if (logicStr.equals("&&")) {
+				return ((expressResult[0] && expressResult[1]) ? "true" : "false");
+			}
+			return ((expressResult[0] || expressResult[1]) ? "true" : "false");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -275,7 +328,7 @@ public class CommonUtils {
 			type = "date";
 		}
 		compareValue = compareValue.replaceAll("\'", "").replaceAll("\"", "");
-		String realValue = value.toString();
+		String realValue = (value == null) ? "null" : value.toString();
 		if (type.equals("time")) {
 			realValue = DateUtil.formatDate(value, dayTimeFmt);
 		} else if (type.equals("date")) {
@@ -289,6 +342,9 @@ public class CommonUtils {
 		if (compareType.equals("!=")) {
 			return !realValue.equalsIgnoreCase(compareValue);
 		}
+		// 为null时只参与等于或不等于逻辑判断
+		if (value == null)
+			return false;
 		// 大于等于
 		if (compareType.equals(">=")) {
 			return moreEqual(value, realValue, compareValue, type);
@@ -323,9 +379,8 @@ public class CommonUtils {
 		// 数字
 		if (CommonUtils.isNumber(valueStr) && CommonUtils.isNumber(compare)) {
 			return Double.parseDouble(valueStr) >= Double.parseDouble(compare);
-		} else {
-			return valueStr.compareTo(compare) >= 0;
 		}
+		return valueStr.compareTo(compare) >= 0;
 	}
 
 	/**
@@ -343,9 +398,8 @@ public class CommonUtils {
 		// 数字
 		if (CommonUtils.isNumber(valueStr) && CommonUtils.isNumber(compare)) {
 			return Double.parseDouble(valueStr) <= Double.parseDouble(compare);
-		} else {
-			return valueStr.compareTo(compare) <= 0;
 		}
+		return valueStr.compareTo(compare) <= 0;
 	}
 
 	/**
@@ -363,9 +417,8 @@ public class CommonUtils {
 		// 数字
 		if (CommonUtils.isNumber(valueStr) && CommonUtils.isNumber(compare)) {
 			return Double.parseDouble(valueStr) > Double.parseDouble(compare);
-		} else {
-			return valueStr.compareTo(compare) > 0;
 		}
+		return valueStr.compareTo(compare) > 0;
 	}
 
 	/**
@@ -383,9 +436,8 @@ public class CommonUtils {
 		// 数字
 		if (CommonUtils.isNumber(valueStr) && CommonUtils.isNumber(compare)) {
 			return Double.parseDouble(valueStr) < Double.parseDouble(compare);
-		} else {
-			return valueStr.compareTo(compare) < 0;
 		}
+		return valueStr.compareTo(compare) < 0;
 	}
 
 	/**
@@ -401,5 +453,34 @@ public class CommonUtils {
 			result[i] = StringUtil.toHumpStr(labelNames[i], false);
 		}
 		return result;
+	}
+
+	/**
+	 * 关闭一个或多个流对象
+	 *
+	 * @param closeables 可关闭的流对象列表
+	 * @throws IOException
+	 */
+	public static void close(Closeable... closeables) throws IOException {
+		if (closeables != null) {
+			for (Closeable closeable : closeables) {
+				if (closeable != null) {
+					closeable.close();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 关闭一个或多个流对象
+	 *
+	 * @param closeables 可关闭的流对象列表
+	 */
+	public static void closeQuietly(Closeable... closeables) {
+		try {
+			close(closeables);
+		} catch (IOException e) {
+			// do nothing
+		}
 	}
 }

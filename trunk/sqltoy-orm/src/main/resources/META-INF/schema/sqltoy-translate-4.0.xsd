@@ -67,6 +67,21 @@
 										default="100" />
 								</xsd:complexType>
 							</xsd:element>
+							<xsd:element name="local-translate" minOccurs="0"
+								maxOccurs="unbounded">
+								<xsd:complexType mixed="true">
+									<xsd:attribute name="cache" type="xsd:string"
+										use="required" />
+									<xsd:attribute name="keep-alive" type="xsd:integer"
+										default="3600" />
+									<xsd:attribute name="heap" type="xsd:integer"
+										default="400" />
+									<xsd:attribute name="off-heap" type="xsd:integer"
+										default="30" />
+									<xsd:attribute name="disk-size" type="xsd:integer"
+										default="100" />
+								</xsd:complexType>
+							</xsd:element>
 						</xsd:choice>
 						<xsd:attribute name="disk-store-path" default="./translateCaches" />
 					</xsd:complexType>
@@ -116,6 +131,15 @@
 								</xsd:complexType>
 							</xsd:element>
 						</xsd:choice>
+						<xsd:attribute name="cluster-time-deviation" type="xsd:integer" default="1">
+							<xsd:annotation>
+								<xsd:documentation>
+								<![CDATA[
+									集群各个节点时间差异(单位秒),缓存更新检测时将基准检测时间扣减差集群时差。
+								]]>
+								</xsd:documentation>
+							</xsd:annotation>
+						</xsd:attribute>
 					</xsd:complexType>
 				</xsd:element>
 			</xsd:choice>

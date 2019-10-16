@@ -3,6 +3,9 @@
  */
 package org.sagacity.sqltoy.utils;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -10,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -212,10 +216,11 @@ public class MongoElasticUtils {
 						}
 					}
 				}
-				if (sqlMode)
+				if (sqlMode) {
 					queryStr = SqlConfigParseUtils.processWhereLinkAnd(preSql, markContentSql, tailSql);
-				else
+				} else {
 					queryStr = preSql.concat(BLANK).concat(markContentSql).concat(BLANK).concat(tailSql);
+				}
 			}
 			pseudoMarkStart = queryStr.indexOf(startMark);
 		}
@@ -276,11 +281,11 @@ public class MongoElasticUtils {
 			if (method.equals("") || method.equals("param") || method.equals("value")) {
 				Object[] ary = null;
 				isAry = true;
-				if (value.getClass().isArray())
+				if (value.getClass().isArray()) {
 					ary = CollectionUtil.convertArray(value);
-				else if (value instanceof Collection)
+				} else if (value instanceof Collection) {
 					ary = ((Collection) value).toArray();
-				else {
+				} else {
 					ary = new Object[] { value };
 					isAry = false;
 				}
@@ -290,13 +295,18 @@ public class MongoElasticUtils {
 				for (Object var : ary) {
 					if (i > 0)
 						realMql.append(",");
-					if (var instanceof Number)
+					if (var instanceof Number) {
 						realMql.append(var.toString());
-					else if (var instanceof Date) {
+					} else if ((var instanceof Date) || (var instanceof LocalDateTime)) {
 						realMql.append(charSign).append(DateUtil.formatDate(var, "yyyy-MM-dd HH:mm:ss"))
 								.append(charSign);
-					} else
+					} else if ((var instanceof LocalDate)) {
+						realMql.append(charSign).append(DateUtil.formatDate(var, "yyyy-MM-dd")).append(charSign);
+					} else if ((var instanceof LocalTime)) {
+						realMql.append(charSign).append(DateUtil.formatDate(var, "HH:mm:ss")).append(charSign);
+					} else {
 						realMql.append(charSign).append(removeDangerWords(var.toString())).append(charSign);
+					}
 					i++;
 				}
 				if (isAry)
@@ -343,10 +353,15 @@ public class MongoElasticUtils {
 					realMql.append(",");
 				if (var instanceof Number)
 					realMql.append(var.toString());
-				else if (var instanceof Date) {
+				else if ((var instanceof Date) || (var instanceof LocalDateTime)) {
 					realMql.append(charSign).append(DateUtil.formatDate(var, "yyyy-MM-dd HH:mm:ss")).append(charSign);
-				} else
+				} else if (var instanceof LocalDate) {
+					realMql.append(charSign).append(DateUtil.formatDate(var, "yyyy-MM-dd")).append(charSign);
+				} else if (var instanceof LocalTime) {
+					realMql.append(charSign).append(DateUtil.formatDate(var, "HH:mm:ss")).append(charSign);
+				} else {
 					realMql.append(charSign).append(removeDangerWords(var.toString())).append(charSign);
+				}
 				i++;
 			}
 			index++;
@@ -374,8 +389,9 @@ public class MongoElasticUtils {
 	 * @return
 	 * @throws Exception
 	 */
-	public static List wrapResultClass(List rowSet, String[] fields, String resultClass) throws Exception {
-		if (rowSet == null || rowSet.isEmpty() || StringUtil.isBlank(resultClass))
+	public static List wrapResultClass(List rowSet, String[] fields, Class resultType) throws Exception {
+		if (rowSet == null || rowSet.isEmpty() || null==resultType||resultType.equals(List.class)
+				|| resultType.equals(ArrayList.class) || resultType.equals(Collection.class))
 			return rowSet;
 		String[] aliasFields = new String[fields.length];
 		System.arraycopy(fields, 0, aliasFields, 0, fields.length);
@@ -387,26 +403,24 @@ public class MongoElasticUtils {
 			}
 		}
 		String[] aliasNames = CommonUtils.humpFieldNames(aliasFields);
-		int mapType = 0;
-		String className = resultClass.toLowerCase();
-		if (className.equals("map") || className.equals("hashmap"))
-			mapType = 1;
-		else if (className.equals("linkedmap") || className.equals("linkedhashmap"))
-			mapType = 2;
-		if (mapType == 0)
-			return BeanUtil.reflectListToBean(rowSet, aliasNames, Class.forName(resultClass));
-
-		List result = new ArrayList();
-		List rowList;
-		for (int i = 0; i < rowSet.size(); i++) {
-			rowList = (List) rowSet.get(i);
-			Map row = (mapType == 2) ? new LinkedHashMap() : new HashMap();
-			for (int j = 0; j < aliasNames.length; j++) {
-				row.put(aliasNames[j], rowList.get(j));
+		Class superClass=resultType.getSuperclass();
+		if (resultType.equals(HashMap.class) ||superClass.equals(HashMap.class)
+				|| superClass.equals(LinkedHashMap.class) || resultType.equals(ConcurrentHashMap.class)
+				|| superClass.equals(ConcurrentHashMap.class) || resultType.equals(Map.class)
+				|| superClass.equals(Map.class)) {
+			List result = new ArrayList();
+			List rowList;
+			for (int i = 0; i < rowSet.size(); i++) {
+				rowList = (List) rowSet.get(i);
+				Map row = (Map) resultType.getDeclaredConstructor().newInstance();
+				for (int j = 0; j < aliasNames.length; j++) {
+					row.put(aliasNames[j], rowList.get(j));
+				}
+				result.add(row);
 			}
-			result.add(row);
+			return result;
 		}
-		return result;
+		return BeanUtil.reflectListToBean(rowSet, aliasNames, resultType);
 	}
 
 	/**
@@ -489,8 +503,9 @@ public class MongoElasticUtils {
 					value = dataSet.get(j).get(realIndex[i]);
 					if (value != null) {
 						translateAry = keyValues.get(value.toString());
-						if (null != translateAry)
+						if (null != translateAry) {
 							dataSet.get(j).set(colIndex, keyValues.get(value.toString())[cacheIndex]);
+						}
 					}
 				}
 			}
@@ -502,8 +517,9 @@ public class MongoElasticUtils {
 				value = dataMap.get(translateModel.getAlias());
 				if (value != null) {
 					translateAry = keyValues.get(value.toString());
-					if (null != translateAry)
+					if (null != translateAry) {
 						dataMap.put(lables[i], keyValues.get(value.toString())[cacheIndex]);
+					}
 				}
 			}
 		}

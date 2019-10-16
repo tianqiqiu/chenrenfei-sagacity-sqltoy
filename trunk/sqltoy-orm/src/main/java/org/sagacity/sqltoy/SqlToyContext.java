@@ -6,6 +6,7 @@ package org.sagacity.sqltoy;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
@@ -21,6 +22,7 @@ import org.sagacity.sqltoy.plugins.IUnifyFieldsHandler;
 import org.sagacity.sqltoy.plugins.function.FunctionUtils;
 import org.sagacity.sqltoy.plugins.sharding.ShardingStrategy;
 import org.sagacity.sqltoy.translate.TranslateManager;
+import org.sagacity.sqltoy.translate.cache.TranslateCacheManager;
 import org.sagacity.sqltoy.utils.BeanUtil;
 import org.sagacity.sqltoy.utils.IdUtil;
 import org.sagacity.sqltoy.utils.StringUtil;
@@ -40,7 +42,7 @@ public class SqlToyContext implements ApplicationContextAware {
 	/**
 	 * 定义日志
 	 */
-	protected final Logger logger = LogManager.getLogger(getClass());
+	protected final Logger logger = LogManager.getLogger(SqlToyContext.class);
 
 	/**
 	 * sqlToy 配置解析插件
@@ -66,6 +68,8 @@ public class SqlToyContext implements ApplicationContextAware {
 	 * 统一公共字段赋值处理; 如修改时,为修改人和修改时间进行统一赋值; 创建时:为创建人、创建时间、修改人、修改时间进行统一赋值
 	 */
 	private IUnifyFieldsHandler unifyFieldsHandler;
+
+	private TranslateCacheManager translateCacheManager;
 
 	/**
 	 * @param unifyFieldsHandler the unifyFieldsHandler to set
@@ -114,7 +118,7 @@ public class SqlToyContext implements ApplicationContextAware {
 	}
 
 	/**
-	 * 批处理记录数量,默认为50
+	 * 批处理记录数量,默认为200
 	 */
 	private int batchSize = 200;
 
@@ -198,6 +202,11 @@ public class SqlToyContext implements ApplicationContextAware {
 	private ApplicationContext applicationContext;
 
 	/**
+	 * 自行定义的属性
+	 */
+	private Map keyValues;
+
+	/**
 	 * @todo 初始化
 	 * @throws Exception
 	 */
@@ -205,7 +214,7 @@ public class SqlToyContext implements ApplicationContextAware {
 		logger.debug("start init sqltoy ..............................");
 		// 加载sqltoy的各类参数,如db2是否要增加with
 		// ur等,详见org/sagacity/sqltoy/sqltoy-default.properties
-		SqlToyConstants.loadProperties(dialectProperties);
+		SqlToyConstants.loadProperties(dialectProperties, keyValues);
 
 		// 设置workerId和dataCenterId,为使用snowflake主键ID产生算法服务
 		setWorkerAndDataCenterId();
@@ -223,7 +232,7 @@ public class SqlToyContext implements ApplicationContextAware {
 		/**
 		 * 初始化翻译器
 		 */
-		translateManager.initialize(this, delayCheckSeconds);
+		translateManager.initialize(this, translateCacheManager, delayCheckSeconds);
 
 		/**
 		 * 初始化sql执行统计的基本参数
@@ -245,7 +254,15 @@ public class SqlToyContext implements ApplicationContextAware {
 		if (StringUtil.isBlank(beanName) || StringUtil.isBlank(motheded))
 			return null;
 		try {
-			return BeanUtil.invokeMethod(applicationContext.getBean(beanName), motheded, args);
+			Object beanDefine = null;
+			if (applicationContext.containsBean(beanName)) {
+				beanDefine = applicationContext.getBean(beanName);
+			} else if (beanName.indexOf(".") > 0) {
+				beanDefine = applicationContext.getBean(Class.forName(beanName));
+			} else {
+				return null;
+			}
+			return BeanUtil.invokeMethod(beanDefine, motheded, args);
 		} catch (BeansException e) {
 			e.printStackTrace();
 		} catch (IllegalStateException e) {
@@ -509,8 +526,14 @@ public class SqlToyContext implements ApplicationContextAware {
 	/**
 	 * @param dialectProperties the dialectProperties to set
 	 */
-	public void setDialectProperties(String dialectProperties) {
-		this.dialectProperties = dialectProperties;
+	public void setDialectProperties(Object dialectProperties) {
+		if (dialectProperties == null)
+			return;
+		if (dialectProperties instanceof String) {
+			this.dialectProperties = dialectProperties.toString();
+		} else if (dialectProperties instanceof Map) {
+			this.keyValues = (Map) dialectProperties;
+		}
 	}
 
 	public void setSqlResourcesDir(String sqlResourcesDir) {
@@ -675,6 +698,10 @@ public class SqlToyContext implements ApplicationContextAware {
 
 	public void setDelayCheckSeconds(int delayCheckSeconds) {
 		this.delayCheckSeconds = delayCheckSeconds;
+	}
+
+	public void setTranslateCacheManager(TranslateCacheManager translateCacheManager) {
+		this.translateCacheManager = translateCacheManager;
 	}
 
 	public void destroy() {

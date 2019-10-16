@@ -4,7 +4,12 @@
 package org.sagacity.sqltoy.plugins.nosql;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -14,7 +19,6 @@ import org.sagacity.sqltoy.config.model.NoSqlConfigModel;
 import org.sagacity.sqltoy.config.model.SqlToyConfig;
 import org.sagacity.sqltoy.model.DataSetResult;
 import org.sagacity.sqltoy.utils.BeanUtil;
-import org.sagacity.sqltoy.utils.CollectionUtil;
 import org.sagacity.sqltoy.utils.HttpClientUtils;
 import org.sagacity.sqltoy.utils.MongoElasticUtils;
 import org.sagacity.sqltoy.utils.ResultUtils;
@@ -45,7 +49,7 @@ public class ElasticSearchUtils {
 	 * @throws Exception
 	 */
 	public static DataSetResult executeQuery(SqlToyContext sqlToyContext, SqlToyConfig sqlToyConfig, String sql,
-			String resultClass) throws Exception {
+			Class resultClass) throws Exception {
 		NoSqlConfigModel noSqlModel = sqlToyConfig.getNoSqlConfigModel();
 		ElasticEndpoint esConfig = sqlToyContext.getElasticEndpoint(noSqlModel.getEndpoint());
 		boolean esSql = (esConfig.isEnableSql() && noSqlModel.isSqlMode());
@@ -56,9 +60,13 @@ public class ElasticSearchUtils {
 		}
 		String[] fields = noSqlModel.getFields();
 		if (fields == null && resultClass != null) {
-			if (!CollectionUtil.any(resultClass.toLowerCase(),
-					new String[] { "map", "hashmap", "linkedhashmap", "linkedmap" }, false)) {
-				fields = BeanUtil.matchSetMethodNames(Class.forName(resultClass));
+			Class superClass = resultClass.getSuperclass();
+			if (!resultClass.equals(ArrayList.class) && !resultClass.equals(List.class)
+					&& !resultClass.equals(Collection.class) && !resultClass.equals(HashMap.class)
+					&& !superClass.equals(HashMap.class) && !resultClass.equals(Map.class)
+					&& !superClass.equals(Map.class) && !superClass.equals(LinkedHashMap.class)
+					&& !resultClass.equals(ConcurrentHashMap.class) && !superClass.equals(ConcurrentHashMap.class)) {
+				fields = BeanUtil.matchSetMethodNames(resultClass);
 			}
 		}
 

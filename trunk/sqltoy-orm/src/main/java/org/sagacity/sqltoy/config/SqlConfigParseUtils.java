@@ -52,6 +52,7 @@ import org.sagacity.sqltoy.utils.StringUtil;
  *               基于freemarker的复杂逻辑判断代码}
  * @Modification {Date:2019-02-21,增强:named 参数匹配正则表达式,参数中必须要有字母}
  * @Modification {Date:2019-06-26,修复条件参数中有问号的bug，并放开条件参数名称不能是单个字母的限制}
+ * @Modification {Date:2019-10-11 修复@if(:name==null) 不参与逻辑判断bug }
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class SqlConfigParseUtils {
@@ -384,6 +385,7 @@ public class SqlConfigParseUtils {
 					int end = StringUtil.getSymMarkIndex("(", ")", markContentSql, start);
 					String evalStr = markContentSql.substring(markContentSql.indexOf("(", start) + 1, end);
 					int logicParamCnt = StringUtil.matchCnt(evalStr, ARG_NAME_PATTERN);
+					//update 2019-10-11 修复@if(:name==null) 不参与逻辑判断bug
 					logicValue = CommonUtils.evalLogic(evalStr, paramValuesList, preParamCnt, logicParamCnt);
 					// 逻辑不成立,剔除sql和对应参数
 					if (!logicValue) {
@@ -694,7 +696,6 @@ public class SqlConfigParseUtils {
 	 * @param querySql
 	 * @param dialect
 	 * @param sqlType
-	 * @param functionConverts
 	 * @return
 	 */
 	public static SqlToyConfig parseSqlToyConfig(String querySql, String dialect, SqlType sqlType) {
@@ -752,6 +753,7 @@ public class SqlConfigParseUtils {
 	/**
 	 * @todo 提取fastWith
 	 * @param sqlToyConfig
+	 * @param dialect
 	 */
 	public static void processFastWith(SqlToyConfig sqlToyConfig, String dialect) {
 		// 提取with as 和fast部分的sql，用于分页或取随机记录查询记录数量提供最简sql
@@ -811,102 +813,4 @@ public class SqlConfigParseUtils {
 		}
 		return null;
 	}
-
-	// /**
-	// * @todo 执行不同数据库函数的转换
-	// * @param functionConverts
-	// * @param dialect
-	// * @param sqlContent
-	// * @return
-	// */
-	// public static String convertFunctions(List<IFunction> functionConverts,
-	// String dialect, String sqlContent) {
-	// if (null == functionConverts || functionConverts.isEmpty() ||
-	// StringUtil.isBlank(dialect) || null == sqlContent
-	// || sqlContent.trim().equals("")) {
-	// return sqlContent;
-	// }
-	// int dbType = DataSourceUtils.getDBType(dialect);
-	// IFunction function;
-	// String lastFunction = sqlContent;
-	// String dialectLowcase = dialect.toLowerCase();
-	// for (int i = 0; i < functionConverts.size(); i++) {
-	// function = functionConverts.get(i);
-	// // 方言为null或空白表示适配所有数据库,适配的方言包含当前方言也执行替换
-	// if (StringUtil.isBlank(function.dialects()) ||
-	// function.dialects().toLowerCase().contains(dialectLowcase)) {
-	// lastFunction = replaceFunction(lastFunction, dbType, function);
-	// }
-	// }
-	// return lastFunction;
-	// }
-	//
-	// /**
-	// * @todo 单个sql函数转换处理
-	// * @param sqlContent
-	// * @param dbType
-	// * @param function
-	// * @return
-	// */
-	// private static String replaceFunction(String sqlContent, int dbType,
-	// IFunction function) {
-	// Pattern pattern = Pattern.compile(function.regex());
-	// String lastFunction = sqlContent;
-	// Matcher matcher = pattern.matcher(lastFunction);
-	// int index = -1;
-	// String functionParams;
-	// String[] args = null;
-	// int matchedIndex;
-	// int endMarkIndex = -1;
-	// StringBuilder result = new StringBuilder();
-	// String wrapResult;
-	// String functionName = null;
-	// boolean hasArgs = true;
-	// String matchedGroup;
-	// while (matcher.find()) {
-	// index = matcher.start();
-	// matchedGroup = matcher.group();
-	// // 是 function()模式
-	// if (matchedGroup.endsWith("(")) {
-	// hasArgs = true;
-	// } else {
-	// hasArgs = false;
-	// }
-	// matchedIndex = index + 1;
-	// // 函数(:args) 存在参数
-	// if (hasArgs) {
-	// functionName = lastFunction.substring(matchedIndex, lastFunction.indexOf("(",
-	// matchedIndex));
-	// endMarkIndex = StringUtil.getSymMarkIndex("(", ")", lastFunction,
-	// matchedIndex);
-	// functionParams = lastFunction.substring(lastFunction.indexOf("(",
-	// matchedIndex) + 1, endMarkIndex);
-	// args = StringUtil.splitExcludeSymMark(functionParams, ",",
-	// SqlToyConstants.filters);
-	// } else {
-	// args = null;
-	// endMarkIndex = matcher.end() - 1;
-	// functionName = lastFunction.substring(matchedIndex, endMarkIndex);
-	// }
-	//
-	// wrapResult = function.wrap(dbType, functionName, hasArgs, args);
-	//
-	// // update 2019-09-13 修改为:返回函数名称一样也做替换
-	// // 返回null或返回的跟原函数一样则表示不做任何处理
-	// // if (null == wrapResult
-	// // ||
-	// //
-	// wrapResult.toLowerCase().concat("(").startsWith(functionName.toLowerCase().concat("(")))
-	// if (null == wrapResult) {
-	// result.append(lastFunction.substring(0, endMarkIndex + 1));
-	// } else {
-	// result.append(lastFunction.substring(0, matchedIndex)).append(wrapResult);
-	// }
-	// lastFunction = lastFunction.substring(endMarkIndex + 1);
-	// matcher.reset(lastFunction);
-	//
-	// }
-	// result.append(lastFunction);
-	// return result.toString();
-	// }
 }

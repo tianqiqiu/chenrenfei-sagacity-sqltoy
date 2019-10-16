@@ -22,6 +22,7 @@ import org.sagacity.sqltoy.utils.DateUtil;
  * @author chenrenfei <a href="mailto:zhongxuchen@gmail.com">联系作者</a>
  * @version id:CacheCheckTimer.java,Revision:v1.0,Date:2018年3月11日
  * @Modification {Date:2019-1-22,修改检测时间格式为yyyy-MM-dd HH:mm:ss 避免时间对比精度差异}
+ * @Modification {Date:2019-10-14,增加集群节点的时间差异参数,便于包容性检测缓存更新}
  */
 public class CacheUpdateWatcher extends Thread {
 	/**
@@ -59,13 +60,19 @@ public class CacheUpdateWatcher extends Thread {
 	 * 延时检测时长
 	 */
 	private int delaySeconds = 30;
+	
+	/**
+	 * 集群的节点时间差异(秒)
+	 */
+	private int deviationSeconds=0;
 
 	public CacheUpdateWatcher(SqlToyContext sqlToyContext, TranslateCacheManager translateCacheManager,
-			List<CheckerConfigModel> updateCheckers, int delaySeconds) {
+			List<CheckerConfigModel> updateCheckers, int delaySeconds,int deviationSeconds) {
 		this.sqlToyContext = sqlToyContext;
 		this.translateCacheManager = translateCacheManager;
 		this.updateCheckers = updateCheckers;
 		this.delaySeconds = delaySeconds;
+		this.deviationSeconds=deviationSeconds;
 		// 初始化检测时间
 		if (updateCheckers != null && !updateCheckers.isEmpty()) {
 			Long checkTime = DateUtil.parse(System.currentTimeMillis(), dateFmt).getTime();
@@ -114,8 +121,8 @@ public class CacheUpdateWatcher extends Thread {
 				if (nowInterval >= interval) {
 					// 更新最后检测时间
 					lastCheckTime.put(checker, Long.valueOf(DateUtil.parse(nowMillis, dateFmt).getTime()));
-					// 执行检测
-					doCheck(sqlToyContext, checkerConfig, preCheck);
+					// 执行检测(检测时间扣减集群节点时间偏离)
+					doCheck(sqlToyContext, checkerConfig, DateUtil.addSecond(preCheck, deviationSeconds).getTime());
 				}
 			}
 			try {
