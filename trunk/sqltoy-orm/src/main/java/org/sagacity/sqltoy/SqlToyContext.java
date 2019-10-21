@@ -218,7 +218,7 @@ public class SqlToyContext implements ApplicationContextAware {
 
 		// 设置workerId和dataCenterId,为使用snowflake主键ID产生算法服务
 		setWorkerAndDataCenterId();
-
+		
 		/**
 		 * 初始化翻译器
 		 */
