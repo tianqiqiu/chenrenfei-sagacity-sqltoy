@@ -52,7 +52,8 @@ public class ElasticSearchUtils {
 			Class resultClass) throws Exception {
 		NoSqlConfigModel noSqlModel = sqlToyConfig.getNoSqlConfigModel();
 		ElasticEndpoint esConfig = sqlToyContext.getElasticEndpoint(noSqlModel.getEndpoint());
-		boolean esSql = (esConfig.isEnableSql() && noSqlModel.isSqlMode());
+		// 原生sql支持(7.5.1 还未支持分页)
+		boolean nativeSql = (esConfig.isNativeSql() && noSqlModel.isSqlMode());
 		// 执行请求并返回json结果
 		JSONObject json = HttpClientUtils.doPost(sqlToyContext, noSqlModel, esConfig, sql);
 		if (json == null || json.isEmpty()) {
@@ -70,7 +71,7 @@ public class ElasticSearchUtils {
 			}
 		}
 
-		if (fields == null && esSql) {
+		if (fields == null && nativeSql) {
 			JSONArray cols = json.getJSONArray("columns");
 			fields = new String[cols.size()];
 			int index = 0;
@@ -81,10 +82,11 @@ public class ElasticSearchUtils {
 		}
 
 		DataSetResult resultSet = null;
-		if (esSql)
+		if (nativeSql) {
 			resultSet = extractSqlFieldValue(sqlToyContext, sqlToyConfig, json, fields);
-		else
+		} else {
 			resultSet = extractFieldValue(sqlToyContext, sqlToyConfig, json, fields);
+		}
 		MongoElasticUtils.processTranslate(sqlToyContext, sqlToyConfig, resultSet.getRows(), resultSet.getLabelNames());
 
 		// 不支持指定查询集合的行列转换
@@ -149,16 +151,21 @@ public class ElasticSearchUtils {
 	public static DataSetResult extractFieldValue(SqlToyContext sqlToyContext, SqlToyConfig sqlToyConfig,
 			JSONObject json, String[] fields) {
 		// 聚合数据提取
-		if (sqlToyConfig.getNoSqlConfigModel().isHasAggs() || json.getJSONObject("aggregations") != null)
+		if (sqlToyConfig.getNoSqlConfigModel().isHasAggs() || json.getJSONObject("aggregations") != null) {
 			return extractAggsFieldValue(sqlToyContext, sqlToyConfig, json, fields);
-		else if (json.containsKey("suggest")) {
+		} else if (json.containsKey("suggest")) {
 			return extractSuggestFieldValue(sqlToyContext, sqlToyConfig, json, fields);
 		}
 		DataSetResult resultModel = new DataSetResult();
 		// 设置总记录数量
-		if (json.getJSONObject("hits") != null) {
-			Long total = json.getJSONObject("hits").getLong("total");
-			resultModel.setTotalCount(total);
+		JSONObject hits = json.getJSONObject("hits");
+		if (hits != null && hits.containsKey("total")) {
+			Object total = hits.get("total");
+			if (total instanceof JSONObject) {
+				resultModel.setTotalCount(((JSONObject) total).getLong("value"));
+			} else {
+				resultModel.setTotalCount(Long.parseLong(total.toString()));
+			}
 		}
 		NoSqlConfigModel nosqlConfig = sqlToyConfig.getNoSqlConfigModel();
 		List result = new ArrayList();
@@ -167,9 +174,9 @@ public class ElasticSearchUtils {
 		JSONObject root = json;
 		String lastKey = valuePath[valuePath.length - 1];
 		for (int i = 0; i < valuePath.length - 1; i++) {
-			if (root != null)
+			if (root != null) {
 				root = root.getJSONObject(valuePath[i]);
-			else {
+			} else {
 				return resultModel;
 			}
 		}
@@ -235,8 +242,9 @@ public class ElasticSearchUtils {
 				: sqlToyConfig.getNoSqlConfigModel().getValueRoot();
 		Object root = json;
 		// 确保第一个路径是聚合统一的名词
-		if (!rootPath[0].equalsIgnoreCase("suggest"))
+		if (!rootPath[0].equalsIgnoreCase("suggest")) {
 			root = ((JSONObject) root).get("suggest");
+		}
 		for (String str : rootPath) {
 			root = ((JSONObject) root).get(str);
 		}
@@ -458,8 +466,9 @@ public class ElasticSearchUtils {
 			for (Object key : keys) {
 				if (!key.equals("key") && !key.equals("doc_count")) {
 					result = rowJson.get(key.toString());
-					if (result instanceof JSONObject)
+					if (result instanceof JSONObject) {
 						return getRealJSONObject((JSONObject) result, realFields, isSuggest);
+					}
 					return result;
 				}
 			}

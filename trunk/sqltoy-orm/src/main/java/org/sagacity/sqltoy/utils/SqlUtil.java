@@ -22,6 +22,9 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -250,6 +253,12 @@ public class SqlUtil {
 				pst.setDouble(paramIndex, ((Double) paramValue));
 			} else if (paramValue instanceof java.sql.Timestamp) {
 				pst.setTimestamp(paramIndex, (java.sql.Timestamp) paramValue);
+			} else if (paramValue instanceof java.time.LocalDate) {
+				pst.setDate(paramIndex, java.sql.Date.valueOf((LocalDate) paramValue));
+			} else if (paramValue instanceof java.time.LocalDateTime) {
+				pst.setTimestamp(paramIndex, Timestamp.valueOf((LocalDateTime) paramValue));
+			} else if (paramValue instanceof java.time.LocalTime) {
+				pst.setTime(paramIndex, java.sql.Time.valueOf((LocalTime) paramValue));
 			} else if (paramValue instanceof java.sql.Time) {
 				pst.setTime(paramIndex, (java.sql.Time) paramValue);
 			} else if (paramValue instanceof java.util.Date) {
@@ -267,7 +276,7 @@ public class SqlUtil {
 				Blob tmp = (java.sql.Blob) paramValue;
 				pst.setBytes(paramIndex, tmp.getBytes(0, Long.valueOf(tmp.length()).intValue()));
 			} else if (paramValue instanceof java.sql.Date) {
-				pst.setTimestamp(paramIndex, new Timestamp(((java.sql.Date) paramValue).getTime()));
+				pst.setDate(paramIndex, (java.sql.Date) paramValue);
 			} else if (paramValue instanceof java.lang.Character) {
 				tmpStr = ((Character) paramValue).toString();
 				pst.setString(paramIndex, tmpStr);

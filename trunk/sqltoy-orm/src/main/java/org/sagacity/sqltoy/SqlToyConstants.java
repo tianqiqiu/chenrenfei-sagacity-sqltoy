@@ -346,7 +346,8 @@ public class SqlToyConstants {
 	}
 
 	/**
-	 * @param uncachedKeyResult the uncachedKeyResult to set
+	 * @param uncachedKeyResult
+	 *            the uncachedKeyResult to set
 	 */
 	public static void setUncachedKeyResult(String uncachedKeyResult) {
 		UNCACHED_KEY_RESULT = uncachedKeyResult;
@@ -375,4 +376,5 @@ public class SqlToyConstants {
 		}
 		return result;
 	}
+
 }

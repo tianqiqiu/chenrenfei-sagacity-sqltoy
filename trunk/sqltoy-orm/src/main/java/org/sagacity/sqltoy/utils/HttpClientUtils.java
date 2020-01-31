@@ -60,7 +60,7 @@ public class HttpClientUtils {
 
 	private final static String CONTENT_TYPE = "application/json";
 
-	private final static String GET = "GET";
+	// private final static String GET = "GET";
 
 	private final static String POST = "POST";
 
@@ -112,15 +112,15 @@ public class HttpClientUtils {
 	 */
 	public static JSONObject doPost(SqlToyContext sqltoyContext, NoSqlConfigModel nosqlConfig, ElasticEndpoint esConfig,
 			Object postValue) throws Exception {
-		if (esConfig.getUrl() == null)
+		if (esConfig.getUrl() == null) {
 			throw new IllegalArgumentException("请正确配置sqltoyContext elasticConfigs 指定es的服务地址!");
-
+		}
 		String charset = (nosqlConfig.getCharset() == null) ? CHARSET : nosqlConfig.getCharset();
 		HttpEntity httpEntity = null;
 		// sql 模式
 		if (nosqlConfig.isSqlMode()) {
 			// 6.3.x 版本支持xpack sql查询
-			if (esConfig.isEnableSql()) {
+			if (esConfig.isNativeSql()) {
 				Map<String, String> map = new HashMap<String, String>();
 				map.put("query", postValue.toString());
 				httpEntity = new StringEntity(JSON.toJSONString(map), charset);
@@ -136,10 +136,11 @@ public class HttpClientUtils {
 		// 返回结果
 		HttpEntity reponseEntity = null;
 		if (esConfig.getRestClient() != null) {
-			realUrl = wrapUrl(esConfig.getPath(), esConfig.isEnableSql(), nosqlConfig);
-			if (sqltoyContext.isDebug())
+			realUrl = wrapUrl(esConfig, nosqlConfig);
+			if (sqltoyContext.isDebug()) {
 				logger.debug("esRestClient执行:URL=[{}],Path={},执行的JSON=[{}]", esConfig.getUrl(), realUrl,
 						JSON.toJSONString(postValue));
+			}
 			// 默认采用post请求
 			RestClient restClient = null;
 			try {
@@ -154,14 +155,16 @@ public class HttpClientUtils {
 			} catch (Exception e) {
 				throw e;
 			} finally {
-				if (restClient != null)
+				if (restClient != null) {
 					restClient.close();
+				}
 			}
 		} else {
-			realUrl = wrapUrl(esConfig.getUrl(), esConfig.isEnableSql(), nosqlConfig);
+			realUrl = wrapUrl(esConfig, nosqlConfig);
 			HttpPost httpPost = new HttpPost(realUrl);
-			if (sqltoyContext.isDebug())
+			if (sqltoyContext.isDebug()) {
 				logger.debug("httpClient执行URL=[{}],执行的JSON=[{}]", realUrl, JSON.toJSONString(postValue));
+			}
 			httpPost.setEntity(httpEntity);
 
 			// 设置connection是否自动关闭
@@ -196,8 +199,9 @@ public class HttpClientUtils {
 		String result = null;
 		if (reponseEntity != null) {
 			result = EntityUtils.toString(reponseEntity, nosqlConfig.getCharset());
-			if (sqltoyContext.isDebug())
+			if (sqltoyContext.isDebug()) {
 				logger.debug("result={}", result);
+			}
 		}
 		if (StringUtil.isBlank(result))
 			return null;
@@ -214,27 +218,43 @@ public class HttpClientUtils {
 
 	/**
 	 * @todo 重新组织url
-	 * @param url
-	 * @param enableSql
+	 * @param esConfig
 	 * @param nosqlConfig
 	 * @return
 	 */
-	private static String wrapUrl(String url, boolean enableSql, NoSqlConfigModel nosqlConfig) {
+	private static String wrapUrl(ElasticEndpoint esConfig, NoSqlConfigModel nosqlConfig) {
+		String url = esConfig.getUrl();
+		String nativePath = "_xpack/sql";
+		String sqlPluginPath = "_sql";
+		if (esConfig.getMajorVersion() >= 7) {
+			nativePath = "_sql";
+			if (esConfig.getMajorVersion() > 7 || esConfig.getMinorVersion() >= 5) {
+				sqlPluginPath = "_nlpcn/sql";
+			}
+		}
 		if (nosqlConfig.isSqlMode()) {
 			// elasticsearch6.3.x 通过xpack支持sql查询
-			if (enableSql) {
+			// 6.3 /_xpack/sql
+			// 7.x /_sql
+			// elasticsearch-sql7.4 /_sql
+			// elasticsearch-sql7.5+ /_nlpcn/sql
+			if (esConfig.isNativeSql()) {
 				// 判断url中是否已经包含相应路径
-				if (!url.toLowerCase().contains("/_xpack/sql"))
-					url = url.concat(url.endsWith("/") ? "_xpack/sql" : "/_xpack/sql");
+				if (!url.toLowerCase().contains(nativePath)) {
+					url = url.concat(url.endsWith("/") ? nativePath : "/".concat(nativePath));
+				}
 			} else {
-				if (!url.toLowerCase().contains("/_sql"))
-					url = url.concat(url.endsWith("/") ? "_sql" : "/_sql");
+				if (!url.toLowerCase().contains(sqlPluginPath)) {
+					url = url.concat(url.endsWith("/") ? sqlPluginPath : "/".concat(sqlPluginPath));
+				}
 			}
 		} else {
-			if (StringUtil.isNotBlank(nosqlConfig.getIndex()))
+			if (StringUtil.isNotBlank(nosqlConfig.getIndex())) {
 				url = url.concat(url.endsWith("/") ? "" : "/").concat(nosqlConfig.getIndex());
-			if (StringUtil.isNotBlank(nosqlConfig.getType()))
+			}
+			if (StringUtil.isNotBlank(nosqlConfig.getType())) {
 				url = url.concat(url.endsWith("/") ? "" : "/").concat(nosqlConfig.getType());
+			}
 			if (!url.toLowerCase().endsWith(SEARCH)) {
 				url = url.concat(url.endsWith("/") ? "" : "/").concat(SEARCH);
 			}

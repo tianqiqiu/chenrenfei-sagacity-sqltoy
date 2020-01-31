@@ -5,6 +5,7 @@ package org.sagacity.sqltoy.utils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -115,8 +116,9 @@ public class DateUtil {
 
 	/**
 	 * @todo 将日期字符串或时间转换成时间类型 日期字符串中的日期分隔符可是:"/",".","-"， 返回时间具体到秒 只提供常用的日期格式处理
-	 * @param str
-	 * @return Date
+	 * @param data
+	 * @param format
+	 * @return
 	 */
 	public static Date parse(Object data, String format) {
 		return parse(data, format, null);
@@ -203,20 +205,23 @@ public class DateUtil {
 				if (size > 16) {
 					realDF = "yyyyMMdd HHmmssSSS";
 				} else if (size == 16) {
-					if (preSize == 8)
+					if (preSize == 8) {
 						realDF = "yyyyMMdd HHmmssS";
-					else
+					} else {
 						realDF = "yyMMdd HHmmssSSS";
+					}
 				} else if (size == 13) {
-					if (preSize == 8)
+					if (preSize == 8) {
 						realDF = "yyyyMMdd HHmm";
-					else
+					} else {
 						realDF = "yyMMdd HHmmss";
+					}
 				} else if (size == 11) {
-					if (preSize == 8)
+					if (preSize == 8) {
 						realDF = "yyyyMMdd HH";
-					else
+					} else {
 						realDF = "yyMMdd HHmm";
+					}
 				} else if (size == 9) {
 					realDF = "yyMMdd HH";
 				} else {
@@ -230,40 +235,44 @@ public class DateUtil {
 					if (dateStr.indexOf(".") != -1) {
 						realDF = "HH:mm:ss.SSS";
 					} else {
-						if (size == 5)
+						if (size == 5) {
 							realDF = "HH:mm";
-						else
+						} else {
 							realDF = "HH:mm:ss";
+						}
 					}
 				} else {
 					dateStr = dateStr.replace("-", "/").replace(".", "/");
 					splitCount = StringUtil.matchCnt(dateStr, "\\/");
 					if (splitCount == 2) {
 						startIndex = dateStr.indexOf("/");
-						if (startIndex == 2)
+						if (startIndex == 2) {
 							realDF = "yy/MM/dd";
-						else
+						} else {
 							realDF = "yyyy/MM/dd";
+						}
 					} else if (splitCount == 1) {
-						if (size > 5)
+						if (size > 5) {
 							realDF = "yyyy/MM";
-						else
+						} else {
 							realDF = "yy/MM";
+						}
 					} else {
-						if (size >= 15)
+						if (size >= 15) {
 							realDF = "yyyyMMddHHmmssSSS";
-						else if (size == 14)
+						} else if (size == 14) {
 							realDF = "yyyyMMddHHmmss";
-						else if (size == 12)
+						} else if (size == 12) {
 							realDF = "yyMMddHHmmss";
-						else if (size == 10)
+						} else if (size == 10) {
 							realDF = "yyyyMMddHH";
-						else if (size == 6)
+						} else if (size == 6) {
 							realDF = "yyyyMM";
-						else if (size == 4)
+						} else if (size == 4) {
 							realDF = "yyyy";
-						else
+						} else {
 							realDF = "yyyyMMdd";
+						}
 					}
 				}
 			}
@@ -313,10 +322,11 @@ public class DateUtil {
 			result = new java.util.Date(((java.sql.Date) dt).getTime());
 		} else if (dt instanceof java.lang.Number) {
 			// 13位表示毫秒数
-			if (dtStr.length() != 13)
+			if (dtStr.length() != 13) {
 				result = parseString(dtStr, format, local);
-			else
+			} else {
 				result = new java.util.Date(((Number) dt).longValue());
+			}
 		} else {
 			throw new IllegalArgumentException(dt + "日期数据必须是String、Date、Long、Integer类型,请正确输入!");
 		}
@@ -443,15 +453,17 @@ public class DateUtil {
 
 	public static int getMonth(Object dateValue) {
 		GregorianCalendar currentDate = new GregorianCalendar();
-		if (dateValue != null)
+		if (dateValue != null) {
 			currentDate.setTime(convertDateObject(dateValue));
+		}
 		return currentDate.get(Calendar.MONTH) + 1;
 	}
 
 	public static int getDay(Object dateValue) {
 		GregorianCalendar currentDate = new GregorianCalendar();
-		if (null != dateValue)
+		if (null != dateValue) {
 			currentDate.setTime(convertDateObject(dateValue));
+		}
 		return currentDate.get(Calendar.DAY_OF_MONTH);
 	}
 
@@ -493,12 +505,15 @@ public class DateUtil {
 		StringBuilder result = new StringBuilder();
 		if (dateValue instanceof String) {
 			tmpDate = (String) dateValue;
-			if (tmpDate.length() >= 4)
+			if (tmpDate.length() >= 4) {
 				result.append(pointDate.get(Calendar.YEAR) + "年");
-			if (tmpDate.length() >= 6)
+			}
+			if (tmpDate.length() >= 6) {
 				result.append((pointDate.get(Calendar.MONTH) + 1) + "月");
-			if (tmpDate.length() >= 8)
+			}
+			if (tmpDate.length() >= 8) {
 				result.append(pointDate.get(Calendar.DAY_OF_MONTH) + "日");
+			}
 			if (tmpDate.length() > 10) {
 				result.append(pointDate.get(Calendar.HOUR_OF_DAY) + "时");
 				result.append(pointDate.get(Calendar.MINUTE) + "分");
@@ -530,8 +545,9 @@ public class DateUtil {
 			tmp = tmp.replaceAll(CHINA_DATE_KEYS[i], CHINA_DATE_KEY_MAP[i]);
 		}
 		tmp = tmp.replace("整", "").trim();
-		if (tmp.endsWith("-") || tmp.endsWith(":"))
+		if (tmp.endsWith("-") || tmp.endsWith(":")) {
 			tmp = tmp.substring(0, tmp.length() - 1);
+		}
 		if (StringUtil.isBlank(fmt))
 			return tmp.toString();
 		return formatDate(tmp, fmt);
@@ -581,10 +597,22 @@ public class DateUtil {
 		return Date.from(localDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
 	}
 
+	public static Date asSqlDate(LocalDate localDate) {
+		if (localDate == null)
+			return null;
+		return Date.from(localDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
+	}
+
 	public static Date asDate(LocalTime localTime) {
 		if (localTime == null)
 			return null;
 		return DateUtil.parseString(localTime.toString());
+	}
+
+	public static Time asTime(LocalTime localTime) {
+		if (localTime == null)
+			return null;
+		return java.sql.Time.valueOf(localTime);
 	}
 
 	public static Date asDate(LocalDateTime localDateTime) {
