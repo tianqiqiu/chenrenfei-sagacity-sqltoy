@@ -61,6 +61,7 @@ public class ShardingUtils {
 		ShardingModel shardingModel = new ShardingModel();
 		shardingModel.setDataSource(dataSource);
 		EntityMeta entityMeta = sqlToyContext.getEntityMeta(entity.getClass());
+		shardingModel.setTableName(entityMeta.getSchemaTable());
 		// 主键值需要提前按照主键策略赋予(sequence 和assign模式的不会实际执行赋值)
 		if (wrapIdValue)
 			assignPK(sqlToyContext, entityMeta, entity);
@@ -124,20 +125,20 @@ public class ShardingUtils {
 			EntityMeta entityMeta, DataSource dataSource) throws Exception {
 		ShardingConfig shardingConfig = entityMeta.getShardingConfig();
 		ShardingModel shardingModel = null;
-
+		String entityTable = entityMeta.getSchemaTable();
 		// 没有sharding配置，则作为单个分组返回
 		if (shardingConfig == null) {
 			Collection<ShardingGroupModel> result = new ArrayList<ShardingGroupModel>();
 			ShardingGroupModel model = new ShardingGroupModel();
 			shardingModel = new ShardingModel();
 			shardingModel.setDataSource(dataSource);
+			shardingModel.setTableName(entityTable);
 			model.setShardingModel(shardingModel);
 			model.setEntities(entities);
 			result.add(model);
 			return result;
 		}
-		Class entityClass = entities.get(0).getClass();
-		String entityTable = entityMeta.getSchemaTable();
+		Class entityClass = entityMeta.getEntityClass();
 
 		// 分库
 		boolean hasDB = false;
@@ -519,8 +520,9 @@ public class ShardingUtils {
 							}
 						}
 					}
-					PropertyUtils.setProperty(entities.get(i), pks[0], idGenerator.getId(table, signature,
-							entityMeta.getBizIdRelatedColumns(), relatedColValue, null, idType, idLength, sequenceSize));
+					PropertyUtils.setProperty(entities.get(i), pks[0],
+							idGenerator.getId(table, signature, entityMeta.getBizIdRelatedColumns(), relatedColValue,
+									null, idType, idLength, sequenceSize));
 				}
 			}
 		}
