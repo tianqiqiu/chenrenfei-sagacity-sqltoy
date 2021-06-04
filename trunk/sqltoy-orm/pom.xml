@@ -15,7 +15,7 @@
 		<spring-data-mongo.version>2.2.6.RELEASE</spring-data-mongo.version>
 		<ojdbc.version>19.3.0.0</ojdbc.version>
 		<ehcache.version>3.8.1</ehcache.version>
-		<httpclient.version>4.5.12</httpclient.version>
+		<httpclient.version>4.5.13</httpclient.version>
 		<httpclient-core.version>4.4.13</httpclient-core.version>
 		<elastic-rest-client.version>7.6.1</elastic-rest-client.version>
 		<fastjson.version>1.2.68</fastjson.version>
