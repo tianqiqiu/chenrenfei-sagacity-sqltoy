@@ -24,7 +24,7 @@
 		<junit-platform.version>1.6.1</junit-platform.version>
 		<beanutils.version>1.9.4</beanutils.version>
 		<slf4j.version>1.7.30</slf4j.version>
-		<log4j.version>2.13.1</log4j.version>
+		<log4j.version>2.16.0</log4j.version>
 	</properties>
 	<licenses>
 		<license>
